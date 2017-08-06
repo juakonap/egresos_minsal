@@ -2,15 +2,21 @@ rm(list=ls())
 library(data.table)
 library(xlsx)
 
-setwd("your_work_directory")
+#setwd("your_work_directory")
 
-#temp <- tempfile()
-#datos_egresos <- lapply(egresos_link[c(1,3,4),], function(x){download.file(x,temp);fread(unzip(zipfile = temp))})
-#unlink(temp)
-#gc()
+temp <- tempfile()
+datos_egresos <- lapply("https://github.com/juakonap/Egresos-Minsal/raw/master/datos/ssegreso2009.zip", function(x){download.file(x,temp);fread(unzip(zipfile = temp))})
+unlink(temp)
+gc()
+
+temp <- tempfile()
+download.file("https://github.com/juakonap/Egresos-Minsal/raw/master/datos/ssegreso2011.zip",temp)
+datos_egresos <- fread(unzip(zipfile = temp))
+unlink(temp)
+gc()
 
 
-archivos_disponibles <- list.files(pattern = ".zip")
+
 #lista_datos <- lapply(archivos_disponibles[length(archivos_disponibles)], function(x) fread(unzip(x)))
 datos <- fread(unzip(archivos_disponibles[length(archivos_disponibles)]))[, `:=`(establecimiento = as.numeric(ESTAB),
                                                                                  seremi = as.numeric(Seremi),
@@ -39,36 +45,28 @@ file.remove(list.files(pattern=".csv"))
 
 #tablas auxiliares
 
-cod_comuna_serv_salud <- as.data.table(read.xlsx2("tablas_2015/DPA2015.xls", sheetName="DPA2015",encoding="UTF-8",stringsAsFactors = F))[,"encoding":=NULL
-                                                                                                                                        ][, `:=`(nombre_comuna = Nombre.Comuna,
-                                                                                                                                                 cod_comuna_2010 = as.numeric(C?digo.Comuna.desde.2010),
-                                                                                                                                                 cod_provincia_2010 = as.numeric(C?digo.Provincia.desde.2010),
-                                                                                                                                                 nombre_provincia_2010 = Provincia.desde.2010,
-                                                                                                                                                 cod_servicio_2008 = as.numeric(C?digo.Servicio.Salud.desde.2008),
-                                                                                                                                                 nombre_servicio_2008 = Nombre.Servicio.de.Salud.desde.2008)
-                                                                                                                                        ][, names(cod_comuna_serv_salud)[grep("[.]",names(cod_comuna_serv_salud))]:=NULL]
+cod_comuna_serv_salud <- data.table(gdata::read.xls("http://github.com/juakonap/Egresos-Minsal/raw/master/tablas_auxiliares/2015/DPA2015.xls", header = F, skip = 1, stringsAsFactors = F))
+names(cod_comuna_serv_salud) <- c("cod_comuna_hasta_99", "nombre_comuna", "cod_comuna_desde_00", "cod_comuna_desde_08", "cod_comuna_desde_10", 
+                                  "prov_desde_00", "cod_prov_desde_00", "prov_desde_08", "cod_prov_desde_08", "prov_desde_10", "cod_prov_desde_10",
+                                  "region_desde_00", "cod_region_desde_00", "region_desde_08", "cod_region_desde_08", "serv_salud_hasta_07", "cod_serv_salud_hasta_07", "serv_salud_desde_08", "cod_serv_salud_desde_08")
 
 
-cod_establecimiento <- as.data.table(read.xlsx2("tablas_2015/Establecimientos 2015.xls", sheetName="2015", encoding = "UTF-8",stringsAsFactors = F))[,"encoding":=NULL
-                                                                                                                                                    ][, `:=`(region = as.numeric(Regi?n),
-                                                                                                                                                             id_servicio = as.numeric(Id.Servicio),
-                                                                                                                                                             seremi = as.numeric(SEREMI),
-                                                                                                                                                             nombre_comuna = Nombre.Comuna,
-                                                                                                                                                             cod_establecimiento = as.numeric(Codigo.Establecimiento),
-                                                                                                                                                             tipo_establecimiento = Nombre.Tipo.de.Establecimiento,
-                                                                                                                                                             nombre_establecimiento = Nombre,
-                                                                                                                                                             establecimiento = Establecimiento.)
-                                                                                                                                                    ][, c("Regi?n","Id.Servicio","SEREMI","Id..Comuna",
-                                                                                                                                                          "Nombre.Comuna","Nombre.Tipo.de.Establecimiento",
-                                                                                                                                                          "Codigo.Establecimiento","Nombre","Establecimiento."):=NULL]
+cod_establecimiento <- data.table(gdata::read.xls("http://github.com/juakonap/Egresos-Minsal/raw/master/tablas_auxiliares/2015/Establecimientos%202015.xls", header = F, skip = 1, stringsAsFactors = F))
+names(cod_establecimiento) <- c("region", "id_servicio", "seremi", "id_comuna", "nombre_comuna", "nombre_tpo_establ", "cod_establ", "nombre", "establecimiento")
 
 
-cod_serv_medico <- as.data.table(read.xlsx2("tablas_2015/Servicio clinico o nivel de cuidado.xlsx", sheetName = "Hoja1", encoding = "UTF-8",stringsAsFactors = F))[,"encoding":=NULL
-                                                                                                                                                                  ][,`:=`(cod_servicio_clinico = as.numeric(Codigo.servicio.cl?nico.Nivel.de.cuidado),
-                                                                                                                                                                         nombre_servicio_clinico = Nombre.servicio.cl?nico)
-                                                                                                                                                                  ][, c("Codigo.servicio.cl?nico.Nivel.de.cuidado","Nombre.servicio.cl?nico"):=NULL]
-cod_diag_principal <- as.data.table(read.xlsx2("tablas_2015/DIAG1.xlsx", sheetName = "Hoja1", encoding = "UTF-8",stringsAsFactors = F))[,"encoding":=NULL]
+temp <- tempfile()
+download.file("https://github.com/juakonap/Egresos-Minsal/raw/master/tablas_auxiliares/2015/Servicio%20clinico%20o%20nivel%20de%20cuidado.xlsx",temp, mode="wb")
+cod_serv_medico <- data.table(xlsx::read.xlsx2(temp, sheetName = "Hoja1",stringsAsFactors = F, encoding="UTF-8", header=F, startRow=2))[, X1:=as.numeric(X1)][, "encoding":=NULL]
+names(cod_serv_medico) <- c("cod_serv_clinico_niv_cuidado",	"nombre_serv_clinico")
+unlink(temp)
 
+
+temp <- tempfile()
+download.file("https://github.com/juakonap/Egresos-Minsal/raw/master/tablas_auxiliares/2015/DIAG1.xlsx",temp, mode="wb")
+cod_diag_principal  <- data.table(xlsx::read.xlsx2(temp, sheetName = "Hoja1",stringsAsFactors = F, encoding="UTF-8", header=F, startRow=2))[, "encoding":=NULL]
+names(cod_diag_principal) <- c("codigo", "descriptor")
+unlink(temp)
 
 #Cruces de variables
 
